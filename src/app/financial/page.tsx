@@ -3,10 +3,8 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import KPICard from "@/components/widgets/KPICard";
 import DataTable from "@/components/widgets/DataTable";
 import BarChartWidget from "@/components/charts/BarChartWidget";
-import { kpis, costCenters } from "@/data/extracted-data";
+import { useKPIData } from "@/lib/use-kpi-data";
 import { useState } from "react";
-
-const revenueKPIs = kpis.filter((k) => k.domain === "financial" && !k.id.includes("q1"));
 
 const forecastData = [
   { category: "Network Services", target: 7.75, qtd: 2.4, forecast: 7.56, pct: "97.6%" },
@@ -19,21 +17,25 @@ const forecastData = [
 
 const columns = [
   { key: "category", label: "Category" },
-  { key: "target", label: "Q1'26 Target (M€)", editable: true },
-  { key: "qtd", label: "QTD (M€)", editable: true },
-  { key: "forecast", label: "Forecast (M€)", editable: true },
+  { key: "target", label: "Q1'26 Target (M\u20ac)", editable: true },
+  { key: "qtd", label: "QTD (M\u20ac)", editable: true },
+  { key: "forecast", label: "Forecast (M\u20ac)", editable: true },
   { key: "pct", label: "% Achievement" },
 ];
 
 export default function FinancialPage() {
+  const { getByDomain, costCenters, loaded } = useKPIData();
   const [data, setData] = useState(forecastData);
+
+  if (!loaded) return <DashboardLayout title="Financial Overview"><div className="animate-pulse text-slate-400">Loading...</div></DashboardLayout>;
+
+  const revenueKPIs = getByDomain("financial").filter((k) => !k.id.includes("q1"));
 
   const handleEdit = (row: number, key: string, value: string) => {
     const updated = [...data];
     const numVal = parseFloat(value);
     if (!isNaN(numVal)) {
       (updated[row] as Record<string, unknown>)[key] = numVal;
-      // Recalculate pct
       updated[row].pct = ((updated[row].forecast / updated[row].target) * 100).toFixed(1) + "%";
     }
     setData(updated);
@@ -46,47 +48,21 @@ export default function FinancialPage() {
 
   return (
     <DashboardLayout title="Financial Overview">
-      {/* Revenue KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {revenueKPIs.slice(0, 4).map((k) => (
-          <KPICard
-            key={k.id}
-            name={k.name}
-            value={k.value}
-            unit={k.unit}
-            variance={k.variance}
-            varianceDirection={k.varianceDirection}
-          />
+          <KPICard key={k.id} name={k.name} value={k.value} unit={k.unit} variance={k.variance} varianceDirection={k.varianceDirection} />
         ))}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {revenueKPIs.slice(4).map((k) => (
-          <KPICard
-            key={k.id}
-            name={k.name}
-            value={k.value}
-            unit={k.unit}
-            variance={k.variance}
-            varianceDirection={k.varianceDirection}
-          />
+          <KPICard key={k.id} name={k.name} value={k.value} unit={k.unit} variance={k.variance} varianceDirection={k.varianceDirection} />
         ))}
       </div>
-
-      {/* Q1 Forecast Table */}
       <div className="mb-6">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
-          Q1&apos;26 Revenue Forecast vs Target
-        </h3>
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Q1&apos;26 Revenue Forecast vs Target</h3>
         <DataTable columns={columns} data={data} onCellEdit={handleEdit} />
       </div>
-
-      {/* Cost Centers */}
-      <BarChartWidget
-        title="Cost of Organization by Division (M€)"
-        data={costData}
-        series={[{ dataKey: "cost", name: "Cost (M€)", color: "#ef4444" }]}
-        unit=" M€"
-      />
+      <BarChartWidget title="Cost of Organization by Division (M\u20ac)" data={costData} series={[{ dataKey: "cost", name: "Cost (M\u20ac)", color: "#ef4444" }]} unit=" M\u20ac" />
     </DashboardLayout>
   );
 }
