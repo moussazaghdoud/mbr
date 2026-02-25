@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, DollarSign, ShoppingCart, Wrench,
-  Headphones, Cloud, GraduationCap, Settings, Menu, X,
+  Headphones, Cloud, GraduationCap, Settings, Menu, X, Map,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +15,7 @@ const nav = [
   { href: "/support", label: "Support", icon: Headphones },
   { href: "/cloud", label: "Cloud", icon: Cloud },
   { href: "/training", label: "Training", icon: GraduationCap },
+  { href: "/roadmap", label: "Roadmap", icon: Map },
   { href: "/admin", label: "Admin", icon: Settings },
 ];
 
