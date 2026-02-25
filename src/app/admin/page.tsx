@@ -3,7 +3,9 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import DataTable from "@/components/widgets/DataTable";
 import { kpis } from "@/data/extracted-data";
 import { useState, useEffect } from "react";
-import { Plus, X, Pencil, Trash2, Copy, Download, Upload } from "lucide-react";
+import { Plus, X, Pencil, Trash2, Copy, Download, Upload, Map } from "lucide-react";
+import { roadmapStreams } from "@/data/roadmap-data";
+import type { RoadmapItem } from "@/data/roadmap-data";
 
 const DOMAINS = ["financial", "orders", "services", "support", "cloud", "training", "verticals"] as const;
 const DIRECTIONS = ["up", "down", "flat"] as const;
@@ -56,9 +58,16 @@ export default function AdminPage() {
   const [editingKPI, setEditingKPI] = useState<string | null>(null);
   const [form, setForm] = useState<KPIForm>({ ...emptyForm });
   const [search, setSearch] = useState("");
+  const [roadmapProgress, setRoadmapProgress] = useState<Record<string, number>>({});
+  const [roadmapSaved, setRoadmapSaved] = useState(false);
 
   useEffect(() => {
     setData(getAllData());
+    // Load roadmap progress
+    const stored = localStorage.getItem("ces-roadmap-progress");
+    if (stored) {
+      try { setRoadmapProgress(JSON.parse(stored)); } catch { /* ignore */ }
+    }
   }, []);
 
   const applyFilter = (allData: Record<string, unknown>[], f: string, s: string) => {
@@ -227,6 +236,29 @@ export default function AdminPage() {
     setSaved(false);
   };
 
+  // --- Roadmap Progress ---
+  const handleRoadmapProgressChange = (itemId: string, value: number) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    setRoadmapProgress((prev) => ({ ...prev, [itemId]: clamped }));
+    setRoadmapSaved(false);
+  };
+
+  const handleRoadmapSave = () => {
+    localStorage.setItem("ces-roadmap-progress", JSON.stringify(roadmapProgress));
+    setRoadmapSaved(true);
+    setTimeout(() => setRoadmapSaved(false), 2000);
+  };
+
+  const handleRoadmapReset = () => {
+    localStorage.removeItem("ces-roadmap-progress");
+    setRoadmapProgress({});
+    setRoadmapSaved(false);
+  };
+
+  const getRoadmapItemProgress = (item: RoadmapItem) => {
+    return roadmapProgress[item.id] ?? item.progress;
+  };
+
   // --- Import / Export ---
   const handleExport = () => {
     const all = getAllData();
@@ -376,8 +408,87 @@ export default function AdminPage() {
         )}
       </div>
 
-      <div className="text-xs text-slate-400 dark:text-slate-500">
+      <div className="text-xs text-slate-400 dark:text-slate-500 mb-8">
         All changes are persisted in browser localStorage. Use Export to download a JSON backup. Use Import to load data from a JSON file.
+      </div>
+
+      {/* ================================ */}
+      {/* ROADMAP PROGRESS EDITOR          */}
+      {/* ================================ */}
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-8 mt-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Map size={20} className="text-blue-600" />
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Roadmap Progress</h2>
+            <span className="text-sm text-slate-500 dark:text-slate-400 ml-2">
+              Set progress (0–100%) for each roadmap item
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleRoadmapReset} className="px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">
+              Reset
+            </button>
+            <button onClick={handleRoadmapSave} className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${roadmapSaved ? "bg-emerald-500" : "bg-blue-600 hover:bg-blue-700"}`}>
+              {roadmapSaved ? "Saved!" : "Save Roadmap Progress"}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {roadmapStreams.map((stream) => (
+            <div key={stream.id} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stream.color }} />
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{stream.name}</h3>
+                <span className="text-xs text-slate-500">{stream.items.length} items</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {stream.items.map((item) => {
+                  const progress = getRoadmapItemProgress(item);
+                  return (
+                    <div key={item.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white truncate">{item.title}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            item.status === "completed" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                            item.status === "in-progress" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                            item.status === "planned" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                            "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                          }`}>
+                            {item.status}
+                          </span>
+                          <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{item.category}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="w-32 h-2.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              progress >= 100 ? "bg-emerald-500" :
+                              progress >= 50 ? "bg-blue-500" :
+                              progress > 0 ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-500"
+                            }`}
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={progress}
+                          onChange={(e) => handleRoadmapProgressChange(item.id, parseInt(e.target.value) || 0)}
+                          className="w-16 px-2 py-1 text-sm text-center border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-slate-500 w-4">%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ========================= */}

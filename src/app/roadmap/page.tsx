@@ -2,7 +2,7 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { roadmapStreams } from "@/data/roadmap-data";
 import type { RoadmapStatus, RoadmapItem } from "@/data/roadmap-data";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle2, Clock, CalendarClock, CircleDot,
   ChevronDown, ChevronRight, Filter,
@@ -21,18 +21,40 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-slate-300",
 };
 
-function getAllItems(): RoadmapItem[] {
-  return roadmapStreams.flatMap((s) => s.items);
+function getProgressMap(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  const stored = localStorage.getItem("ces-roadmap-progress");
+  return stored ? JSON.parse(stored) : {};
+}
+
+function applyProgress(items: RoadmapItem[], progressMap: Record<string, number>): RoadmapItem[] {
+  return items.map((item) => ({
+    ...item,
+    progress: progressMap[item.id] ?? item.progress,
+  }));
+}
+
+function getAllItems(progressMap: Record<string, number>): RoadmapItem[] {
+  return roadmapStreams.flatMap((s) => applyProgress(s.items, progressMap));
 }
 
 export default function RoadmapPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterStream, setFilterStream] = useState<string>("all");
+  const [progressMap, setProgressMap] = useState<Record<string, number>>({});
+  const [loaded, setLoaded] = useState(false);
   const [expandedStreams, setExpandedStreams] = useState<Set<string>>(
     new Set(roadmapStreams.map((s) => s.id))
   );
 
-  const allItems = getAllItems();
+  useEffect(() => {
+    setProgressMap(getProgressMap());
+    setLoaded(true);
+  }, []);
+
+  if (!loaded) return <DashboardLayout title="2026 Solutions Roadmap"><div className="animate-pulse text-slate-400">Loading...</div></DashboardLayout>;
+
+  const allItems = getAllItems(progressMap);
   const counts = {
     total: allItems.length,
     completed: allItems.filter((i) => i.status === "completed").length,
@@ -57,7 +79,7 @@ export default function RoadmapPage() {
     .filter((s) => filterStream === "all" || s.id === filterStream)
     .map((s) => ({
       ...s,
-      items: s.items.filter((i) => filterStatus === "all" || i.status === filterStatus),
+      items: applyProgress(s.items, progressMap).filter((i) => filterStatus === "all" || i.status === filterStatus),
     }))
     .filter((s) => s.items.length > 0);
 
@@ -187,6 +209,26 @@ export default function RoadmapPage() {
                             </span>
                             <span className="text-xs text-slate-400">{item.targetDate}</span>
                             <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{item.category}</span>
+                            {/* Progress Bar */}
+                            <div className="flex items-center gap-2 ml-auto">
+                              <div className="w-28 h-2.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${
+                                    item.progress >= 100 ? "bg-emerald-500" :
+                                    item.progress >= 50 ? "bg-blue-500" :
+                                    item.progress > 0 ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-500"
+                                  }`}
+                                  style={{ width: `${item.progress}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-semibold min-w-[2.5rem] text-right ${
+                                item.progress >= 100 ? "text-emerald-600" :
+                                item.progress >= 50 ? "text-blue-600" :
+                                item.progress > 0 ? "text-amber-600" : "text-slate-400"
+                              }`}>
+                                {item.progress}%
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
