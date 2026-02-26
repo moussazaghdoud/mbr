@@ -1,7 +1,7 @@
 "use client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { roadmapStreams } from "@/data/roadmap-data";
-import type { RoadmapStatus, RoadmapItem } from "@/data/roadmap-data";
+import { roadmapStreams as defaultRoadmapStreams } from "@/data/roadmap-data";
+import type { RoadmapStatus, RoadmapItem, RoadmapStream } from "@/data/roadmap-data";
 import { useState, useEffect } from "react";
 import {
   CheckCircle2, Clock, CalendarClock, CircleDot,
@@ -21,40 +21,32 @@ const PRIORITY_DOT: Record<string, string> = {
   low: "bg-slate-300",
 };
 
-function getProgressMap(): Record<string, number> {
-  if (typeof window === "undefined") return {};
-  const stored = localStorage.getItem("ces-roadmap-progress");
-  return stored ? JSON.parse(stored) : {};
-}
-
-function applyProgress(items: RoadmapItem[], progressMap: Record<string, number>): RoadmapItem[] {
-  return items.map((item) => ({
-    ...item,
-    progress: progressMap[item.id] ?? item.progress,
-  }));
-}
-
-function getAllItems(progressMap: Record<string, number>): RoadmapItem[] {
-  return roadmapStreams.flatMap((s) => applyProgress(s.items, progressMap));
+function getStoredStreams(): RoadmapStream[] {
+  if (typeof window === "undefined") return defaultRoadmapStreams;
+  const stored = localStorage.getItem("ces-roadmap-data");
+  if (stored) { try { return JSON.parse(stored); } catch { /* fall through */ } }
+  return defaultRoadmapStreams;
 }
 
 export default function RoadmapPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterStream, setFilterStream] = useState<string>("all");
-  const [progressMap, setProgressMap] = useState<Record<string, number>>({});
+  const [streams, setStreams] = useState<RoadmapStream[]>(defaultRoadmapStreams);
   const [loaded, setLoaded] = useState(false);
   const [expandedStreams, setExpandedStreams] = useState<Set<string>>(
-    new Set(roadmapStreams.map((s) => s.id))
+    new Set(defaultRoadmapStreams.map((s) => s.id))
   );
 
   useEffect(() => {
-    setProgressMap(getProgressMap());
+    const s = getStoredStreams();
+    setStreams(s);
+    setExpandedStreams(new Set(s.map((st) => st.id)));
     setLoaded(true);
   }, []);
 
   if (!loaded) return <DashboardLayout title="2026 Solutions Roadmap"><div className="animate-pulse text-slate-400">Loading...</div></DashboardLayout>;
 
-  const allItems = getAllItems(progressMap);
+  const allItems = streams.flatMap((s) => s.items);
   const counts = {
     total: allItems.length,
     completed: allItems.filter((i) => i.status === "completed").length,
@@ -63,8 +55,8 @@ export default function RoadmapPage() {
     pipeline: allItems.filter((i) => i.status === "pipeline").length,
   };
 
-  const completionPct = Math.round((counts.completed / counts.total) * 100);
-  const activePct = Math.round(((counts.completed + counts["in-progress"]) / counts.total) * 100);
+  const completionPct = counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0;
+  const activePct = counts.total > 0 ? Math.round(((counts.completed + counts["in-progress"]) / counts.total) * 100) : 0;
 
   const toggleStream = (id: string) => {
     setExpandedStreams((prev) => {
@@ -75,11 +67,11 @@ export default function RoadmapPage() {
     });
   };
 
-  const filteredStreams = roadmapStreams
+  const filteredStreams = streams
     .filter((s) => filterStream === "all" || s.id === filterStream)
     .map((s) => ({
       ...s,
-      items: applyProgress(s.items, progressMap).filter((i) => filterStatus === "all" || i.status === filterStatus),
+      items: s.items.filter((i) => filterStatus === "all" || i.status === filterStatus),
     }))
     .filter((s) => s.items.length > 0);
 
@@ -142,7 +134,7 @@ export default function RoadmapPage() {
           ))}
         </div>
         <div className="md:ml-4 flex gap-2 flex-wrap">
-          {[{ id: "all", name: "All Streams" }, ...roadmapStreams.map((s) => ({ id: s.id, name: s.name }))].map((s) => (
+          {[{ id: "all", name: "All Streams" }, ...streams.map((s) => ({ id: s.id, name: s.name }))].map((s) => (
             <button
               key={s.id}
               onClick={() => setFilterStream(s.id)}
