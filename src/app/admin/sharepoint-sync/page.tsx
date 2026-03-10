@@ -197,7 +197,11 @@ export default function SharePointSyncPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const job = data.job;
-      showMsg("success", `Upload sync completed: ${job.rowsImported || 0} imported, ${job.rowsUpdated || 0} updated, ${job.rowsRejected || 0} rejected`);
+      if (job) {
+        showMsg("success", `Upload sync completed: ${job.rowsImported ?? 0} imported, ${job.rowsUpdated ?? 0} updated, ${job.rowsRejected ?? 0} rejected`);
+      } else {
+        showMsg("success", "Upload completed");
+      }
       fetchStatus();
     } catch (err: unknown) {
       showMsg("error", err instanceof Error ? err.message : "Upload failed");
