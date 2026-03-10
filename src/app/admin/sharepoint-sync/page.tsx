@@ -2,7 +2,7 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useState, useEffect, useCallback } from "react";
 import {
-  RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Play,
+  RefreshCw, CheckCircle, XCircle, AlertTriangle, Clock, Play, Upload,
   Settings, FileSpreadsheet, Activity, List, Plug, Save, Loader2,
 } from "lucide-react";
 
@@ -180,6 +180,32 @@ export default function SharePointSyncPage() {
     }
   };
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    setLoading((l) => ({ ...l, upload: true }));
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < fileList.length; i++) {
+        formData.append("files", fileList[i]);
+      }
+      const res = await fetch("/api/admin/sharepoint-sync/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const job = data.job;
+      showMsg("success", `Upload sync completed: ${job.rowsImported || 0} imported, ${job.rowsUpdated || 0} updated, ${job.rowsRejected || 0} rejected`);
+      fetchStatus();
+    } catch (err: unknown) {
+      showMsg("error", err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setLoading((l) => ({ ...l, upload: false }));
+      e.target.value = "";
+    }
+  };
+
   const fetchLogs = async () => {
     setLoading((l) => ({ ...l, logs: true }));
     try {
@@ -271,14 +297,28 @@ export default function SharePointSyncPage() {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Last Sync</h3>
-              <button
-                onClick={runSync}
-                disabled={loading.sync}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors"
-              >
-                {loading.sync ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-                Run Sync Now
-              </button>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50 transition-colors cursor-pointer">
+                  {loading.upload ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                  Upload Excel
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    multiple
+                    onChange={handleUpload}
+                    disabled={loading.upload}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={runSync}
+                  disabled={loading.sync}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {loading.sync ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+                  Run Sync Now
+                </button>
+              </div>
             </div>
 
             {status?.lastJob ? (
