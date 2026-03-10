@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, DollarSign, ShoppingCart, Wrench,
-  Headphones, Cloud, GraduationCap, Settings, Menu, X, Map,
+  Headphones, Cloud, GraduationCap, Settings, Menu, X, Map, RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -17,6 +17,7 @@ const nav = [
   { href: "/training", label: "Training", icon: GraduationCap },
   { href: "/roadmap", label: "Roadmap", icon: Map },
   { href: "/admin", label: "Admin", icon: Settings },
+  { href: "/admin/sharepoint-sync", label: "SP Sync", icon: RefreshCw },
 ];
 
 export default function Sidebar() {

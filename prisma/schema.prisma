@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// SharePoint connection configuration
+model SyncConfig {
+  id                String   @id @default("default")
+  siteUrl           String   @default("")
+  driveId           String   @default("")
+  folderPath        String   @default("/")
+  filePattern       String   @default("*.xlsx")
+  pollingIntervalMin Int     @default(30)
+  enabled           Boolean  @default(false)
+  lastTestedAt      DateTime?
+  connectionStatus  String   @default("unknown")
+  // Credentials (encrypted at rest via AES-256-GCM)
+  username          String   @default("") // encrypted
+  password          String   @default("") // encrypted
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Sync job execution record
+model SyncJob {
+  id            String        @id @default(cuid())
+  status        String        @default("pending")
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  totalFiles    Int           @default(0)
+  filesProcessed Int          @default(0)
+  filesFailed   Int           @default(0)
+  rowsImported  Int           @default(0)
+  rowsUpdated   Int           @default(0)
+  rowsRejected  Int           @default(0)
+  errorMessage  String?
+  triggeredBy   String        @default("manual")
+  fileLogs      SyncFileLog[]
+}
+
+// Per-file sync log
+model SyncFileLog {
+  id           String   @id @default(cuid())
+  syncJobId    String
+  syncJob      SyncJob  @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+  fileName     String
+  filePath     String
+  fileSize     Int      @default(0)
+  lastModified DateTime?
+  eTag         String?
+  status       String   @default("pending")
+  rowsFound    Int      @default(0)
+  rowsImported Int      @default(0)
+  rowsRejected Int      @default(0)
+  errorMessage String?
+  processingMs Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+// Column mapping configuration
+model ColumnMapping {
+  id           String @id @default(cuid())
+  profileName  String @default("default")
+  excelColumn  String
+  kpiId        String
+  kpiField     String @default("value")
+  transform    String @default("none")
+  defaultValue String?
+  required     Boolean @default(false)
+}
+
+// File sync cache for delta detection
+model FileSyncCache {
+  id           String   @id @default(cuid())
+  filePath     String   @unique
+  fileName     String
+  eTag         String?
+  lastModified DateTime?
+  checksum     String?
+  lastSyncedAt DateTime
+  updatedAt    DateTime @updatedAt
+}
+
+// Synced KPI data
+model SyncedKPI {
+  id               String   @id
+  name             String
+  domain           String
+  value            String
+  unit             String   @default("")
+  period           String   @default("")
+  target           String?
+  targetUnit       String?
+  variance         String?
+  varianceDirection String?
+  gap              String?
+  sourceFile       String?
+  sourceSheet      String?
+  sourceRow        Int?
+  syncedAt         DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
