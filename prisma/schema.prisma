@@ -97,3 +97,16 @@ model SyncedKPI {
   syncedAt         DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+// Stores raw Excel data — every row from every sheet
+model UploadedSheet {
+  id         String   @id @default(cuid())
+  fileName   String
+  sheetName  String
+  headers    String   // JSON array of column names
+  rows       String   // JSON array of row objects
+  rowCount   Int      @default(0)
+  uploadedAt DateTime @default(now())
+
+  @@unique([fileName, sheetName])
+}
