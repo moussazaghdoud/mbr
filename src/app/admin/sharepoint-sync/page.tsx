@@ -84,6 +84,7 @@ export default function SharePointSyncPage() {
   const [mappings, setMappings] = useState<{ id: string; excelColumn: string; kpiId: string; kpiField: string; transform: string; required: boolean }[]>([]);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<{ name: string; size: number; status: "pending" | "uploading" | "done" | "error"; detail?: string }[]>([]);
 
   const showMsg = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
@@ -184,7 +185,16 @@ export default function SharePointSyncPage() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
+
+    // Show file list immediately
+    const fileEntries = Array.from(fileList).map((f) => ({
+      name: f.name,
+      size: f.size,
+      status: "uploading" as const,
+    }));
+    setUploadFiles(fileEntries);
     setLoading((l) => ({ ...l, upload: true }));
+
     try {
       const formData = new FormData();
       for (let i = 0; i < fileList.length; i++) {
@@ -197,6 +207,21 @@ export default function SharePointSyncPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       const job = data.job;
+
+      // Update file entries with results from fileLogs
+      if (job?.fileLogs) {
+        setUploadFiles(job.fileLogs.map((fl: FileLog) => ({
+          name: fl.fileName,
+          size: fl.fileSize,
+          status: fl.status === "completed" ? "done" as const : "error" as const,
+          detail: fl.status === "completed"
+            ? `${fl.rowsImported} rows imported`
+            : fl.errorMessage || "Failed",
+        })));
+      } else {
+        setUploadFiles((prev) => prev.map((f) => ({ ...f, status: "done" as const })));
+      }
+
       if (job) {
         showMsg("success", `Upload sync completed: ${job.rowsImported ?? 0} imported, ${job.rowsUpdated ?? 0} updated, ${job.rowsRejected ?? 0} rejected`);
       } else {
@@ -204,7 +229,9 @@ export default function SharePointSyncPage() {
       }
       fetchStatus();
     } catch (err: unknown) {
-      showMsg("error", err instanceof Error ? err.message : "Upload failed");
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setUploadFiles((prev) => prev.map((f) => ({ ...f, status: "error" as const, detail: msg })));
+      showMsg("error", msg);
     } finally {
       setLoading((l) => ({ ...l, upload: false }));
       e.target.value = "";
@@ -350,6 +377,43 @@ export default function SharePointSyncPage() {
               </p>
             )}
           </div>
+
+          {/* Upload progress panel */}
+          {uploadFiles.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Upload size={16} />
+                  Upload Progress ({uploadFiles.length} file{uploadFiles.length > 1 ? "s" : ""})
+                </h3>
+                {!loading.upload && (
+                  <button onClick={() => setUploadFiles([])}
+                    className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {uploadFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-700/40">
+                    <FileSpreadsheet size={16} className="text-emerald-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{f.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {formatSize(f.size)}
+                        {f.detail && <span className="ml-2">{f.detail}</span>}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {f.status === "uploading" && <Loader2 size={16} className="animate-spin text-blue-500" />}
+                      {f.status === "done" && <CheckCircle size={16} className="text-emerald-500" />}
+                      {f.status === "error" && <XCircle size={16} className="text-red-500" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
