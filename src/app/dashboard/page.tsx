@@ -224,7 +224,7 @@ function SheetSection({ sheet, showTitle }: { sheet: SheetData; showTitle: boole
                 data={rows.map((r) => ({ name: String(r[primaryLabel] || ""), value: Math.abs(Number(r[numCols[0]]) || 0) }))}
                 cx="50%" cy="50%" innerRadius={60} outerRadius={100}
                 paddingAngle={2} dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {rows.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
