@@ -230,6 +230,8 @@ export default function SharePointSyncPage() {
         showMsg("success", "Upload completed");
       }
       fetchStatus();
+      // Auto-switch to Logs tab after 2s so user can see persisted results
+      setTimeout(() => { fetchLogs(); setTab("logs"); }, 2000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       setUploadFiles((prev) => prev.map((f) => ({ ...f, status: "error" as const, detail: msg })));
