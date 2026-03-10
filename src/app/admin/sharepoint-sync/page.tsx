@@ -87,7 +87,7 @@ export default function SharePointSyncPage() {
 
   const showMsg = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
+    setTimeout(() => setMessage(null), 15000);
   };
 
   const fetchStatus = useCallback(async () => {
