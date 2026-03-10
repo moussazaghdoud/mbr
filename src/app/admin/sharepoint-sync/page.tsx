@@ -87,7 +87,8 @@ export default function SharePointSyncPage() {
 
   const showMsg = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage(null), 15000);
+    if (type === "success") setTimeout(() => setMessage(null), 15000);
+    // errors stay until manually dismissed
   };
 
   const fetchStatus = useCallback(async () => {
@@ -240,7 +241,10 @@ export default function SharePointSyncPage() {
             : "bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800"
         }`}>
           {message.type === "success" ? <CheckCircle size={16} /> : <XCircle size={16} />}
-          {message.text}
+          <span className="flex-1">{message.text}</span>
+          <button onClick={() => setMessage(null)} className="ml-2 opacity-60 hover:opacity-100">
+            <XCircle size={14} />
+          </button>
         </div>
       )}
 
