@@ -39,30 +39,52 @@ export class ExcelParser {
     const headers: string[] = [];
     const rows: Record<string, unknown>[] = [];
 
-    // Find header row (first row with data)
+    // Find the header row: the row with the MOST populated cells
+    // This skips title rows that span a single merged cell
     let headerRowIndex = 0;
+    let maxCellCount = 0;
+
     worksheet.eachRow((row, rowNumber) => {
-      if (headerRowIndex === 0) {
+      let cellCount = 0;
+      row.eachCell(() => { cellCount++; });
+      if (cellCount > maxCellCount) {
+        maxCellCount = cellCount;
         headerRowIndex = rowNumber;
       }
     });
 
-    if (headerRowIndex === 0) {
+    if (headerRowIndex === 0 || maxCellCount <= 0) {
       return { sheetName, headers, rows };
     }
 
-    // Extract headers
+    // Extract headers from the identified row
     const headerRow = worksheet.getRow(headerRowIndex);
     headerRow.eachCell((cell, colNumber) => {
       const value = this.getCellValue(cell);
       headers[colNumber - 1] = String(value || `Column_${colNumber}`).trim();
     });
 
-    // Extract data rows
+    // Collect rows ABOVE the header as "title" rows (store as metadata)
+    const titleParts: string[] = [];
+    for (let r = 1; r < headerRowIndex; r++) {
+      const row = worksheet.getRow(r);
+      const cells: string[] = [];
+      row.eachCell((cell) => {
+        const val = this.getCellValue(cell);
+        if (val !== null && val !== undefined && String(val).trim() !== "") {
+          cells.push(String(val).trim());
+        }
+      });
+      if (cells.length > 0) {
+        titleParts.push(cells.join(" "));
+      }
+    }
+
+    // Extract data rows (everything after the header)
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber <= headerRowIndex) return;
 
-      const rowData: Record<string, unknown> = { __rowNumber: rowNumber };
+      const rowData: Record<string, unknown> = {};
       let hasData = false;
 
       row.eachCell((cell, colNumber) => {
@@ -80,6 +102,11 @@ export class ExcelParser {
         rows.push(rowData);
       }
     });
+
+    // If we found title rows, inject them as a __title metadata in the first row
+    if (titleParts.length > 0 && rows.length > 0) {
+      rows[0].__title = titleParts.join(" | ");
+    }
 
     return { sheetName, headers: headers.filter(Boolean), rows };
   }

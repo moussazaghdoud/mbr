@@ -123,12 +123,14 @@ export default function DashboardPage() {
 function SheetSection({ sheet, showTitle }: { sheet: SheetData; showTitle: boolean }) {
   const { headers, rows } = sheet;
 
+  // Filter out internal metadata columns
+  const visibleHeaders = headers.filter((h) => !h.startsWith("__"));
+
   // Classify columns
   const labelCols: string[] = [];
   const numCols: string[] = [];
 
-  for (const h of headers) {
-    if (h === "__rowNumber") continue;
+  for (const h of visibleHeaders) {
     const numCount = rows.filter((r) => typeof r[h] === "number").length;
     if (numCount > rows.length * 0.5) {
       numCols.push(h);
@@ -137,7 +139,7 @@ function SheetSection({ sheet, showTitle }: { sheet: SheetData; showTitle: boole
     }
   }
 
-  const primaryLabel = labelCols[0] || headers[0];
+  const primaryLabel = labelCols[0] || visibleHeaders[0];
   const hasEnoughRows = rows.length >= 3;
   const hasNumericData = numCols.length > 0;
 
@@ -242,7 +244,7 @@ function SheetSection({ sheet, showTitle }: { sheet: SheetData; showTitle: boole
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800/50">
-                {headers.filter((h) => h !== "__rowNumber").map((h, i) => (
+                {visibleHeaders.map((h, i) => (
                   <th key={i} className={`px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${
                     numCols.includes(h) ? "text-right" : "text-left"
                   }`}>
@@ -254,7 +256,7 @@ function SheetSection({ sheet, showTitle }: { sheet: SheetData; showTitle: boole
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
               {rows.map((row, ri) => (
                 <tr key={ri} className="hover:bg-slate-50 dark:hover:bg-slate-700/20">
-                  {headers.filter((h) => h !== "__rowNumber").map((h, hi) => {
+                  {visibleHeaders.map((h, hi) => {
                     const val = row[h];
                     const isNum = typeof val === "number";
                     return (
