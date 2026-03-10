@@ -59,7 +59,7 @@ interface SPFile {
   hasChanged: boolean;
 }
 
-type Tab = "overview" | "config" | "files" | "logs" | "mappings";
+type Tab = "overview" | "config" | "files" | "logs" | "mappings" | "data";
 
 const TABS: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "overview", label: "Overview", icon: Activity },
@@ -67,6 +67,7 @@ const TABS: { id: Tab; label: string; icon: typeof Activity }[] = [
   { id: "files", label: "Files", icon: FileSpreadsheet },
   { id: "logs", label: "Sync Logs", icon: List },
   { id: "mappings", label: "Mappings", icon: Plug },
+  { id: "data", label: "Data", icon: List },
 ];
 
 export default function SharePointSyncPage() {
@@ -82,6 +83,7 @@ export default function SharePointSyncPage() {
   const [files, setFiles] = useState<SPFile[]>([]);
   const [jobs, setJobs] = useState<SyncJob[]>([]);
   const [mappings, setMappings] = useState<{ id: string; excelColumn: string; kpiId: string; kpiField: string; transform: string; required: boolean }[]>([]);
+  const [kpiData, setKpiData] = useState<{ id: string; name: string; domain: string; value: number | string; unit: string; period: string; target?: number | string; variance?: string; varianceDirection?: string; gap?: string; _sourceFile?: string; _syncedAt?: string }[]>([]);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [uploadFiles, setUploadFiles] = useState<{ name: string; size: number; status: "pending" | "uploading" | "done" | "error"; detail?: string }[]>([]);
@@ -254,10 +256,22 @@ export default function SharePointSyncPage() {
     if (data.mappings) setMappings(data.mappings);
   };
 
+  const fetchData = async () => {
+    setLoading((l) => ({ ...l, data: true }));
+    try {
+      const res = await fetch("/api/admin/sharepoint-sync/data");
+      const data = await res.json();
+      if (data.kpis) setKpiData(data.kpis);
+      else if (data.error) showMsg("error", data.error);
+    } catch { /* ignore */ }
+    setLoading((l) => ({ ...l, data: false }));
+  };
+
   useEffect(() => {
     if (tab === "files") fetchFiles();
     if (tab === "logs") fetchLogs();
     if (tab === "mappings") fetchMappings();
+    if (tab === "data") fetchData();
     if (tab === "config") fetchConfig();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -575,6 +589,59 @@ export default function SharePointSyncPage() {
       {/* TAB: Mappings */}
       {tab === "mappings" && (
         <MappingsPanel mappings={mappings} onRefresh={fetchMappings} showMsg={showMsg} />
+      )}
+
+      {/* TAB: Data */}
+      {tab === "data" && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-700">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              Synced KPIs ({kpiData.length})
+            </h3>
+            <button onClick={fetchData} disabled={loading.data}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">
+              {loading.data ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              Refresh
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Domain</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Value</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Unit</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase">Target</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Variance</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Period</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">Source File</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {kpiData.map((kpi) => (
+                  <tr key={kpi.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{kpi.id}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{kpi.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{kpi.domain}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-900 dark:text-white">{kpi.value}</td>
+                    <td className="px-4 py-3 text-slate-500">{kpi.unit}</td>
+                    <td className="px-4 py-3 text-right text-slate-500">{kpi.target ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-500">{kpi.variance ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-500">{kpi.period}</td>
+                    <td className="px-4 py-3 text-xs text-slate-400 truncate max-w-[200px]">{kpi._sourceFile ?? "—"}</td>
+                  </tr>
+                ))}
+                {kpiData.length === 0 && !loading.data && (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400">No KPIs synced yet. Upload Excel files or run a sync first.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </DashboardLayout>
   );
